@@ -9,6 +9,7 @@ run on a freshly installed desktop system.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import shutil
@@ -363,8 +364,24 @@ def toolbox_installed(_system: SystemInfo) -> bool:
     return command_exists("jetbrains-toolbox") or Path.home().joinpath(".local/share/JetBrains/Toolbox/bin/jetbrains-toolbox").exists()
 
 
+def jetbrains_toolbox_download_url() -> str:
+    api_url = "https://data.services.jetbrains.com/products/releases?code=TBA&latest=true&type=release"
+    machine = platform.machine().lower()
+    download_key = "linuxARM64" if machine in ("aarch64", "arm64") else "linux"
+    with urllib.request.urlopen(api_url, timeout=30) as response:
+        data = json.loads(response.read().decode("utf-8"))
+    releases = data.get("TBA") or []
+    if not releases:
+        raise RuntimeError("JetBrains Toolbox release metadata did not contain a release.")
+    download = releases[0].get("downloads", {}).get(download_key, {})
+    link = download.get("link")
+    if not link:
+        raise RuntimeError(f"JetBrains Toolbox release metadata did not contain a {download_key} download.")
+    return link
+
+
 def install_jetbrains_toolbox(_system: SystemInfo) -> None:
-    url = "https://download.jetbrains.com/toolbox/jetbrains-toolbox-latest.tar.gz"
+    url = jetbrains_toolbox_download_url()
     install_dir = Path.home() / ".local" / "share" / "JetBrains" / "Toolbox"
     bin_dir = install_dir / "bin"
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -385,6 +402,15 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
         link.unlink()
     link.symlink_to(bin_dir / "jetbrains-toolbox")
     print(f"Installed JetBrains Toolbox to {link}")
+
+
+def install_hermes_agent(_system: SystemInfo) -> None:
+    url = "https://hermes-agent.nousresearch.com/install.sh"
+    with tempfile.TemporaryDirectory() as tmp:
+        installer = Path(tmp) / "install-hermes.sh"
+        print(f"Downloading {url}")
+        urllib.request.urlretrieve(url, installer)
+        run(["bash", str(installer)])
 
 
 def install_arch_aur_helper() -> None:
@@ -625,7 +651,7 @@ def apps() -> list[App]:
         App("ollama", "Ollama", "native installer", command_installed("ollama"), install_ollama, default_selected=False),
         App("pi-agent", "Pi Agent", "native installer", command_installed("pi"), install_npm_global("@earendil-works/pi-coding-agent"), default_selected=False),
         App("opencode", "opencode", "native installer", command_installed("opencode"), install_npm_global("opencode-ai"), default_selected=False),
-        App("hermes-agent", "Hermes Agent", "native installer", command_installed("hermes-agent"), install_npm_global("hermes-agent"), default_selected=False),
+        App("hermes-agent", "Hermes Agent", "native installer", command_installed("hermes"), install_hermes_agent, default_selected=False),
         App("claude-code", "Claude Code", "native installer", command_installed("claude"), install_npm_global("@anthropic-ai/claude-code"), default_selected=False),
         App("codex-cli", "Codex CLI", "native installer", command_installed("codex"), install_npm_global("@openai/codex"), default_selected=False),
     ]

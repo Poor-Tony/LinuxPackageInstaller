@@ -55,6 +55,9 @@ Native installers:
 - Claude Code
 - Codex CLI
 
+Hermes Agent uses the official upstream installer. Pi Agent, opencode, Claude
+Code and Codex CLI use global npm packages.
+
 Ollama, Pi Agent, opencode, Hermes Agent, Claude Code and Codex CLI are opt-in
 entries. They are shown in the selection list but are not selected when pressing
 Enter or when using `--yes`.
