@@ -27,6 +27,10 @@ Native package manager:
 - Oh My Zsh, using a native package where available and the official installer
   as a fallback
 - YubiKey packages and `pcscd`
+- Steam
+- Neovim
+- ONLYOFFICE Desktop Editors
+- GitHub CLI
 
 Flathub:
 
@@ -34,11 +38,26 @@ Flathub:
 - Zed Editor
 - Spotify
 - Bitwarden
+- Mullvad Browser
+- Brave Browser
+- Logseq
+- KeePassXC
+- AusweisApp
 
 Native installers:
 
 - Visual Studio Code
 - JetBrains Toolbox
+- Ollama
+- Pi Agent
+- opencode
+- Hermes Agent
+- Claude Code
+- Codex CLI
+
+Ollama, Pi Agent, opencode, Hermes Agent, Claude Code and Codex CLI are opt-in
+entries. They are shown in the selection list but are not selected when pressing
+Enter or when using `--yes`.
 
 ## Usage
 
@@ -54,7 +73,7 @@ Preview detection and package status without installing anything:
 python3 linux-setup.py --dry-run
 ```
 
-Install all remaining configured software without prompting:
+Install all default-selected remaining configured software without prompting:
 
 ```sh
 python3 linux-setup.py --yes
@@ -62,7 +81,8 @@ python3 linux-setup.py --yes
 
 During interactive selection:
 
-- Press Enter or type `all` to install everything remaining.
+- Press Enter to install the default selection.
+- Type `all` to install everything remaining, including opt-in entries.
 - Type `none` to install nothing.
 - Type selections like `1,3,5-8` to install specific entries.
 

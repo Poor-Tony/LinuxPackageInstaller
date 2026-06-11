@@ -203,6 +203,7 @@ class App:
     category: str
     installed: Callable[[SystemInfo], bool]
     install: Callable[[SystemInfo], None]
+    default_selected: bool = True
 
 
 def manager_install(system: SystemInfo, packages: list[str]) -> None:
@@ -272,6 +273,33 @@ def install_flatpak_and_flathub(system: SystemInfo) -> None:
     if missing_flatpak:
         manager_install(system, packages)
     ensure_flathub()
+
+
+def ensure_npm(system: SystemInfo) -> None:
+    if command_exists("npm"):
+        return
+    manager_install(system, ["npm"])
+
+
+def command_installed(command: str) -> Callable[[SystemInfo], bool]:
+    return lambda _system: command_exists(command)
+
+
+def install_npm_global(package: str) -> Callable[[SystemInfo], None]:
+    def installer(system: SystemInfo) -> None:
+        ensure_npm(system)
+        run(["npm", "install", "-g", package], sudo=True)
+
+    return installer
+
+
+def install_ollama(_system: SystemInfo) -> None:
+    url = "https://ollama.com/install.sh"
+    with tempfile.TemporaryDirectory() as tmp:
+        installer = Path(tmp) / "install-ollama.sh"
+        print(f"Downloading {url}")
+        urllib.request.urlretrieve(url, installer)
+        run(["sh", str(installer)])
 
 
 def vscode_installed(_system: SystemInfo) -> bool:
@@ -526,6 +554,46 @@ NATIVE_ITEMS: dict[str, NativePackage] = {
             ),
         },
     ),
+    "steam": NativePackage(
+        "Steam",
+        ("steam",),
+        {
+            "debian": ("steam-installer",),
+            "fedora": ("steam",),
+            "arch": ("steam",),
+            "opensuse": ("steam",),
+        },
+    ),
+    "neovim": NativePackage(
+        "Neovim",
+        ("nvim",),
+        {
+            "debian": ("neovim",),
+            "fedora": ("neovim",),
+            "arch": ("neovim",),
+            "opensuse": ("neovim",),
+        },
+    ),
+    "onlyoffice": NativePackage(
+        "ONLYOFFICE Desktop Editors",
+        ("onlyoffice-desktopeditors",),
+        {
+            "debian": ("onlyoffice-desktopeditors",),
+            "fedora": ("onlyoffice-desktopeditors",),
+            "arch": ("onlyoffice-bin",),
+            "opensuse": ("onlyoffice-desktopeditors",),
+        },
+    ),
+    "github-cli": NativePackage(
+        "GitHub CLI",
+        ("gh",),
+        {
+            "debian": ("gh",),
+            "fedora": ("gh",),
+            "arch": ("github-cli",),
+            "opensuse": ("gh",),
+        },
+    ),
 }
 
 
@@ -539,12 +607,27 @@ def apps() -> list[App]:
         App("zsh", "ZSH + default shell", "native", zsh_installed, install_zsh_and_default),
         App("oh-my-zsh", "Oh My Zsh", "native/script", oh_my_zsh_installed, install_oh_my_zsh),
         App("yubikey", "YubiKey support", "native", NATIVE_ITEMS["yubikey"].installed, install_yubikey_services),
+        App("steam", "Steam", "native", NATIVE_ITEMS["steam"].installed, install_native(NATIVE_ITEMS["steam"])),
+        App("neovim", "Neovim", "native", NATIVE_ITEMS["neovim"].installed, install_native(NATIVE_ITEMS["neovim"])),
+        App("onlyoffice", "ONLYOFFICE Desktop Editors", "native", NATIVE_ITEMS["onlyoffice"].installed, install_native(NATIVE_ITEMS["onlyoffice"])),
+        App("github-cli", "GitHub CLI", "native", NATIVE_ITEMS["github-cli"].installed, install_native(NATIVE_ITEMS["github-cli"])),
         App("edge", "Microsoft Edge", "flathub", flatpak_installed("com.microsoft.Edge"), install_flatpak("com.microsoft.Edge")),
         App("zed", "Zed Editor", "flathub", flatpak_installed("dev.zed.Zed"), install_flatpak("dev.zed.Zed")),
         App("spotify", "Spotify", "flathub", flatpak_installed("com.spotify.Client"), install_flatpak("com.spotify.Client")),
         App("bitwarden", "Bitwarden", "flathub", flatpak_installed("com.bitwarden.desktop"), install_flatpak("com.bitwarden.desktop")),
+        App("mullvad-browser", "Mullvad Browser", "flathub", flatpak_installed("net.mullvad.MullvadBrowser"), install_flatpak("net.mullvad.MullvadBrowser")),
+        App("brave", "Brave Browser", "flathub", flatpak_installed("com.brave.Browser"), install_flatpak("com.brave.Browser")),
+        App("logseq", "Logseq", "flathub", flatpak_installed("com.logseq.Logseq"), install_flatpak("com.logseq.Logseq")),
+        App("keepassxc", "KeePassXC", "flathub", flatpak_installed("org.keepassxc.KeePassXC"), install_flatpak("org.keepassxc.KeePassXC")),
+        App("ausweisapp", "AusweisApp", "flathub", flatpak_installed("de.bund.ausweisapp.ausweisapp2"), install_flatpak("de.bund.ausweisapp.ausweisapp2")),
         App("vscode", "Visual Studio Code", "native installer", vscode_installed, install_vscode),
         App("jetbrains-toolbox", "JetBrains Toolbox", "native installer", toolbox_installed, install_jetbrains_toolbox),
+        App("ollama", "Ollama", "native installer", command_installed("ollama"), install_ollama, default_selected=False),
+        App("pi-agent", "Pi Agent", "native installer", command_installed("pi"), install_npm_global("@earendil-works/pi-coding-agent"), default_selected=False),
+        App("opencode", "opencode", "native installer", command_installed("opencode"), install_npm_global("opencode-ai"), default_selected=False),
+        App("hermes-agent", "Hermes Agent", "native installer", command_installed("hermes-agent"), install_npm_global("hermes-agent"), default_selected=False),
+        App("claude-code", "Claude Code", "native installer", command_installed("claude"), install_npm_global("@anthropic-ai/claude-code"), default_selected=False),
+        App("codex-cli", "Codex CLI", "native installer", command_installed("codex"), install_npm_global("@openai/codex"), default_selected=False),
     ]
 
 
@@ -563,20 +646,24 @@ def print_status(installed: list[App], pending: list[App]) -> None:
     if installed:
         print(c("\nAlready installed", Color.GREEN))
         for app in installed:
-            print(f"  {c('[ok]', Color.GREEN)} {app.label} {c('[' + app.category + ']', Color.DIM)}")
+            status = app.category + (", opt-in" if not app.default_selected else "")
+            print(f"  {c('[ok]', Color.GREEN)} {app.label} {c('[' + status + ']', Color.DIM)}")
     else:
         print(c("\nAlready installed: none from this list", Color.YELLOW))
     if pending:
         print(c("\nRemaining", Color.YELLOW))
         for index, app in enumerate(pending, 1):
-            print(f"  {index:>2}. {app.label} {c('[' + app.category + ']', Color.DIM)}")
+            status = app.category + (", opt-in" if not app.default_selected else "")
+            print(f"  {index:>2}. {app.label} {c('[' + status + ']', Color.DIM)}")
     else:
         print(c("\nEverything from the configured list is installed.", Color.GREEN))
 
 
 def parse_selection(selection: str, count: int) -> list[int]:
     text = selection.strip().lower()
-    if text in ("", "all", "a"):
+    if text == "":
+        return []
+    if text in ("all", "a"):
         return list(range(count))
     if text in ("none", "n"):
         return []
@@ -602,14 +689,17 @@ def parse_selection(selection: str, count: int) -> list[int]:
 def choose_apps(pending: list[App], assume_yes: bool = False) -> list[App]:
     if not pending:
         return []
+    default_apps = [app for app in pending if app.default_selected]
     if assume_yes:
-        return pending
+        return default_apps
     print()
     print("Select packages to install.")
-    print(c("Enter = all, 'none' = none, examples: 1,3,5-8", Color.DIM))
+    print(c("Enter = default selection, 'all' = all including opt-in, 'none' = none, examples: 1,3,5-8", Color.DIM))
     while True:
         try:
-            selection = input(c("Install selection [all]: ", Color.BOLD))
+            selection = input(c("Install selection [default]: ", Color.BOLD))
+            if selection.strip() == "":
+                return default_apps
             indexes = parse_selection(selection, len(pending))
             return [pending[index] for index in indexes]
         except (ValueError, IndexError) as exc:
@@ -647,7 +737,7 @@ def supported_warning(system: SystemInfo) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Install a personal desktop software set on Linux.")
-    parser.add_argument("--yes", action="store_true", help="install all remaining packages without prompting")
+    parser.add_argument("--yes", action="store_true", help="install default-selected remaining packages without prompting")
     parser.add_argument("--dry-run", action="store_true", help="detect and print status without installing")
     args = parser.parse_args()
 
