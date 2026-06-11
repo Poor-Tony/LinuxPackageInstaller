@@ -286,6 +286,25 @@ def command_installed(command: str) -> Callable[[SystemInfo], bool]:
     return lambda _system: command_exists(command)
 
 
+def local_bin_command_installed(command: str) -> Callable[[SystemInfo], bool]:
+    return lambda _system: command_exists(command) or Path.home().joinpath(".local", "bin", command).exists()
+
+
+def install_shell_script(url: str, filename: str, shell: str = "sh") -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        installer = Path(tmp) / filename
+        print(f"Downloading {url}")
+        urllib.request.urlretrieve(url, installer)
+        run([shell, str(installer)])
+
+
+def install_standalone_script(url: str, filename: str, shell: str = "sh") -> Callable[[SystemInfo], None]:
+    def installer(_system: SystemInfo) -> None:
+        install_shell_script(url, filename, shell=shell)
+
+    return installer
+
+
 def install_npm_global(package: str) -> Callable[[SystemInfo], None]:
     def installer(system: SystemInfo) -> None:
         ensure_npm(system)
@@ -295,12 +314,7 @@ def install_npm_global(package: str) -> Callable[[SystemInfo], None]:
 
 
 def install_ollama(_system: SystemInfo) -> None:
-    url = "https://ollama.com/install.sh"
-    with tempfile.TemporaryDirectory() as tmp:
-        installer = Path(tmp) / "install-ollama.sh"
-        print(f"Downloading {url}")
-        urllib.request.urlretrieve(url, installer)
-        run(["sh", str(installer)])
+    install_shell_script("https://ollama.com/install.sh", "install-ollama.sh")
 
 
 def vscode_installed(_system: SystemInfo) -> bool:
@@ -405,12 +419,7 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
 
 
 def install_hermes_agent(_system: SystemInfo) -> None:
-    url = "https://hermes-agent.nousresearch.com/install.sh"
-    with tempfile.TemporaryDirectory() as tmp:
-        installer = Path(tmp) / "install-hermes.sh"
-        print(f"Downloading {url}")
-        urllib.request.urlretrieve(url, installer)
-        run(["bash", str(installer)])
+    install_shell_script("https://hermes-agent.nousresearch.com/install.sh", "install-hermes.sh", shell="bash")
 
 
 def install_arch_aur_helper() -> None:
@@ -646,8 +655,12 @@ def apps() -> list[App]:
         App("logseq", "Logseq", "flathub", flatpak_installed("com.logseq.Logseq"), install_flatpak("com.logseq.Logseq")),
         App("keepassxc", "KeePassXC", "flathub", flatpak_installed("org.keepassxc.KeePassXC"), install_flatpak("org.keepassxc.KeePassXC")),
         App("ausweisapp", "AusweisApp", "flathub", flatpak_installed("de.bund.ausweisapp.ausweisapp2"), install_flatpak("de.bund.ausweisapp.ausweisapp2")),
+        App("nextcloud", "Nextcloud Desktop Client", "flathub", flatpak_installed("com.nextcloud.desktopclient.nextcloud"), install_flatpak("com.nextcloud.desktopclient.nextcloud")),
         App("vscode", "Visual Studio Code", "native installer", vscode_installed, install_vscode),
         App("jetbrains-toolbox", "JetBrains Toolbox", "native installer", toolbox_installed, install_jetbrains_toolbox),
+        App("uv", "uv", "native installer", local_bin_command_installed("uv"), install_standalone_script("https://astral.sh/uv/install.sh", "install-uv.sh")),
+        App("ruff", "Ruff", "native installer", local_bin_command_installed("ruff"), install_standalone_script("https://astral.sh/ruff/install.sh", "install-ruff.sh")),
+        App("ty", "ty", "native installer", local_bin_command_installed("ty"), install_standalone_script("https://astral.sh/ty/install.sh", "install-ty.sh")),
         App("ollama", "Ollama", "native installer", command_installed("ollama"), install_ollama, default_selected=False),
         App("pi-agent", "Pi Agent", "native installer", command_installed("pi"), install_npm_global("@earendil-works/pi-coding-agent"), default_selected=False),
         App("opencode", "opencode", "native installer", command_installed("opencode"), install_npm_global("opencode-ai"), default_selected=False),
