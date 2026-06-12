@@ -478,6 +478,9 @@ def jetbrains_toolbox_download_url() -> str:
 
 
 def install_jetbrains_toolbox(_system: SystemInfo) -> None:
+    if _system.family == "debian":
+        manager_install(_system, ["libfuse2"])
+
     url = jetbrains_toolbox_download_url()
     install_dir = Path.home() / ".local" / "share" / "JetBrains" / "Toolbox"
     bin_dir = install_dir / "bin"
@@ -487,10 +490,10 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
         print(f"Downloading {url}")
         download_file(url, archive)
         run(["tar", "-xzf", str(archive), "-C", tmp])
-        candidates = sorted(Path(tmp).glob("jetbrains-toolbox-*/bin/jetbrains-toolbox"))
+        candidates = [p for p in Path(tmp).rglob("jetbrains-toolbox") if p.is_file()]
         if not candidates:
             raise RuntimeError(
-                "Could not find jetbrains-toolbox in downloaded archive."
+                "Could not find jetbrains-toolbox binary in downloaded archive."
             )
         target = bin_dir / "jetbrains-toolbox"
         shutil.copy2(candidates[0], target)
