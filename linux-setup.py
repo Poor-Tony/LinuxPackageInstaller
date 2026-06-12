@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-
 APP_NAME = "Linux Setup"
 SUPPORTED_DISTROS = {
     "ubuntu": "Ubuntu",
@@ -156,7 +155,9 @@ def detect_system() -> SystemInfo:
     release = read_os_release()
     distro_id = release.get("ID", "").lower()
     id_like = release.get("ID_LIKE", "").lower().split()
-    distro_name = release.get("PRETTY_NAME") or SUPPORTED_DISTROS.get(distro_id, distro_id or "Unknown")
+    distro_name = release.get("PRETTY_NAME") or SUPPORTED_DISTROS.get(
+        distro_id, distro_id or "Unknown"
+    )
     package_manager = detect_package_manager(distro_id, id_like)
     return SystemInfo(
         distro_id=distro_id,
@@ -170,13 +171,17 @@ def detect_system() -> SystemInfo:
 
 def detect_package_manager(distro_id: str, id_like: list[str]) -> str:
     ids = [distro_id, *id_like]
-    if any(item in ids for item in ("arch", "cachyos", "endeavouros")) and command_exists("pacman"):
+    if any(
+        item in ids for item in ("arch", "cachyos", "endeavouros")
+    ) and command_exists("pacman"):
         return "pacman"
     if any(item in ids for item in ("fedora", "rhel")) and command_exists("dnf"):
         return "dnf"
     if any(item in ids for item in ("ubuntu", "debian")) and command_exists("apt"):
         return "apt"
-    if any(item.startswith("opensuse") or item == "suse" for item in ids) and command_exists("zypper"):
+    if any(
+        item.startswith("opensuse") or item == "suse" for item in ids
+    ) and command_exists("zypper"):
         return "zypper"
     for manager in ("apt", "dnf", "pacman", "zypper"):
         if command_exists(manager):
@@ -234,7 +239,9 @@ def install_native(item: NativePackage) -> Callable[[SystemInfo], None]:
     def installer(system: SystemInfo) -> None:
         packages = native_packages_for(system, item)
         if not packages:
-            raise RuntimeError(f"No package mapping for {item.label} on {system.distro_name}.")
+            raise RuntimeError(
+                f"No package mapping for {item.label} on {system.distro_name}."
+            )
         manager_install(system, packages)
 
     return installer
@@ -255,15 +262,22 @@ def install_flatpak(app_id: str) -> Callable[[SystemInfo], None]:
 def ensure_flathub() -> None:
     if not command_exists("flatpak"):
         raise RuntimeError("flatpak is not installed.")
-    remotes = run(["flatpak", "remotes", "--columns=name"], capture=True, check=False).stdout
+    remotes = run(
+        ["flatpak", "remotes", "--columns=name"], capture=True, check=False
+    ).stdout
     if "flathub" not in remotes.split():
-        run(["flatpak", "remote-add", "--if-not-exists", "flathub", FLATHUB_REMOTE], sudo=True)
+        run(
+            ["flatpak", "remote-add", "--if-not-exists", "flathub", FLATHUB_REMOTE],
+            sudo=True,
+        )
 
 
 def flathub_configured(_system: SystemInfo) -> bool:
     if not command_exists("flatpak"):
         return False
-    remotes = run(["flatpak", "remotes", "--columns=name"], capture=True, check=False).stdout
+    remotes = run(
+        ["flatpak", "remotes", "--columns=name"], capture=True, check=False
+    ).stdout
     return "flathub" in remotes.split()
 
 
@@ -287,11 +301,16 @@ def command_installed(command: str) -> Callable[[SystemInfo], bool]:
 
 
 def local_bin_command_installed(command: str) -> Callable[[SystemInfo], bool]:
-    return lambda _system: command_exists(command) or Path.home().joinpath(".local", "bin", command).exists()
+    return lambda _system: (
+        command_exists(command)
+        or Path.home().joinpath(".local", "bin", command).exists()
+    )
 
 
 def download_file(url: str, dest: Path) -> None:
-    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    headers = {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=30) as response:
         dest.write_bytes(response.read())
@@ -305,7 +324,9 @@ def install_shell_script(url: str, filename: str, shell: str = "sh") -> None:
         run([shell, str(installer)])
 
 
-def install_standalone_script(url: str, filename: str, shell: str = "sh") -> Callable[[SystemInfo], None]:
+def install_standalone_script(
+    url: str, filename: str, shell: str = "sh"
+) -> Callable[[SystemInfo], None]:
     def installer(_system: SystemInfo) -> None:
         install_shell_script(url, filename, shell=shell)
 
@@ -332,19 +353,52 @@ def install_vscode(system: SystemInfo) -> None:
     if system.family == "debian":
         manager_install(system, ["wget", "gpg", "apt-transport-https"])
         run(["install", "-d", "-m", "0755", "/etc/apt/keyrings"], sudo=True)
-        with urllib.request.urlopen("https://packages.microsoft.com/keys/microsoft.asc", timeout=30) as response:
+        with urllib.request.urlopen(
+            "https://packages.microsoft.com/keys/microsoft.asc", timeout=30
+        ) as response:
             key = response.read()
-        proc = subprocess.run(["gpg", "--dearmor"], input=key, stdout=subprocess.PIPE, check=True)
+        proc = subprocess.run(
+            ["gpg", "--dearmor"], input=key, stdout=subprocess.PIPE, check=True
+        )
         temp_key = Path(tempfile.gettempdir()) / "packages.microsoft.gpg"
         temp_key.write_bytes(proc.stdout)
-        run(["install", "-o", "root", "-g", "root", "-m", "0644", str(temp_key), "/etc/apt/keyrings/packages.microsoft.gpg"], sudo=True)
+        run(
+            [
+                "install",
+                "-o",
+                "root",
+                "-g",
+                "root",
+                "-m",
+                "0644",
+                str(temp_key),
+                "/etc/apt/keyrings/packages.microsoft.gpg",
+            ],
+            sudo=True,
+        )
         repo = "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main\n"
         temp_repo = Path(tempfile.gettempdir()) / "vscode.list"
         temp_repo.write_text(repo, encoding="utf-8")
-        run(["install", "-o", "root", "-g", "root", "-m", "0644", str(temp_repo), "/etc/apt/sources.list.d/vscode.list"], sudo=True)
+        run(
+            [
+                "install",
+                "-o",
+                "root",
+                "-g",
+                "root",
+                "-m",
+                "0644",
+                str(temp_repo),
+                "/etc/apt/sources.list.d/vscode.list",
+            ],
+            sudo=True,
+        )
         manager_install(system, ["code"])
     elif system.family == "fedora":
-        run(["rpm", "--import", "https://packages.microsoft.com/keys/microsoft.asc"], sudo=True)
+        run(
+            ["rpm", "--import", "https://packages.microsoft.com/keys/microsoft.asc"],
+            sudo=True,
+        )
         repo = textwrap.dedent(
             """\
             [code]
@@ -359,10 +413,26 @@ def install_vscode(system: SystemInfo) -> None:
         )
         temp_repo = Path(tempfile.gettempdir()) / "vscode.repo"
         temp_repo.write_text(repo, encoding="utf-8")
-        run(["install", "-o", "root", "-g", "root", "-m", "0644", str(temp_repo), "/etc/yum.repos.d/vscode.repo"], sudo=True)
+        run(
+            [
+                "install",
+                "-o",
+                "root",
+                "-g",
+                "root",
+                "-m",
+                "0644",
+                str(temp_repo),
+                "/etc/yum.repos.d/vscode.repo",
+            ],
+            sudo=True,
+        )
         manager_install(system, ["code"])
     elif system.family == "opensuse":
-        run(["rpm", "--import", "https://packages.microsoft.com/keys/microsoft.asc"], sudo=True)
+        run(
+            ["rpm", "--import", "https://packages.microsoft.com/keys/microsoft.asc"],
+            sudo=True,
+        )
         run(
             [
                 "zypper",
@@ -379,7 +449,12 @@ def install_vscode(system: SystemInfo) -> None:
 
 
 def toolbox_installed(_system: SystemInfo) -> bool:
-    return command_exists("jetbrains-toolbox") or Path.home().joinpath(".local/share/JetBrains/Toolbox/bin/jetbrains-toolbox").exists()
+    return (
+        command_exists("jetbrains-toolbox")
+        or Path.home()
+        .joinpath(".local/share/JetBrains/Toolbox/bin/jetbrains-toolbox")
+        .exists()
+    )
 
 
 def jetbrains_toolbox_download_url() -> str:
@@ -390,11 +465,15 @@ def jetbrains_toolbox_download_url() -> str:
         data = json.loads(response.read().decode("utf-8"))
     releases = data.get("TBA") or []
     if not releases:
-        raise RuntimeError("JetBrains Toolbox release metadata did not contain a release.")
+        raise RuntimeError(
+            "JetBrains Toolbox release metadata did not contain a release."
+        )
     download = releases[0].get("downloads", {}).get(download_key, {})
     link = download.get("link")
     if not link:
-        raise RuntimeError(f"JetBrains Toolbox release metadata did not contain a {download_key} download.")
+        raise RuntimeError(
+            f"JetBrains Toolbox release metadata did not contain a {download_key} download."
+        )
     return link
 
 
@@ -410,7 +489,9 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
         run(["tar", "-xzf", str(archive), "-C", tmp])
         candidates = sorted(Path(tmp).glob("jetbrains-toolbox-*/bin/jetbrains-toolbox"))
         if not candidates:
-            raise RuntimeError("Could not find jetbrains-toolbox in downloaded archive.")
+            raise RuntimeError(
+                "Could not find jetbrains-toolbox in downloaded archive."
+            )
         target = bin_dir / "jetbrains-toolbox"
         shutil.copy2(candidates[0], target)
         target.chmod(0o755)
@@ -423,9 +504,11 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
 
 
 def install_hermes_agent(_system: SystemInfo) -> None:
-    install_shell_script("https://hermes-agent.nousresearch.com/install.sh", "install-hermes.sh", shell="bash")
-
-
+    install_shell_script(
+        "https://hermes-agent.nousresearch.com/install.sh",
+        "install-hermes.sh",
+        shell="bash",
+    )
 
 
 def zsh_installed(_system: SystemInfo) -> bool:
@@ -444,7 +527,11 @@ def make_zsh_default() -> None:
     current_shell = os.environ.get("SHELL", "")
     if Path(current_shell).name == "zsh":
         return
-    shells = Path("/etc/shells").read_text(encoding="utf-8") if Path("/etc/shells").exists() else ""
+    shells = (
+        Path("/etc/shells").read_text(encoding="utf-8")
+        if Path("/etc/shells").exists()
+        else ""
+    )
     if zsh not in shells:
         run(["sh", "-c", f"printf '%s\\n' '{zsh}' >> /etc/shells"], sudo=True)
     run(["chsh", "-s", zsh, os.environ.get("USER", "")], sudo=True)
@@ -465,12 +552,20 @@ def install_oh_my_zsh(system: SystemInfo) -> None:
         env = os.environ.copy()
         env["RUNZSH"] = "no"
         env["CHSH"] = "no"
-        url = "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+        url = (
+            "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+        )
         with tempfile.TemporaryDirectory() as tmp:
             installer = Path(tmp) / "install-oh-my-zsh.sh"
             print(f"Downloading {url}")
             download_file(url, installer)
-            run(["sh", str(installer)], check=True, capture=False, input_text=None, env=env)
+            run(
+                ["sh", str(installer)],
+                check=True,
+                capture=False,
+                input_text=None,
+                env=env,
+            )
 
 
 def install_yubikey_services(system: SystemInfo) -> None:
@@ -621,39 +716,249 @@ NATIVE_ITEMS: dict[str, NativePackage] = {
 
 def apps() -> list[App]:
     return [
-        App("flatpak", "Flatpak + Flathub", "native", flathub_configured, install_flatpak_and_flathub),
-        App("firefox", "Firefox", "native", NATIVE_ITEMS["firefox"].installed, install_native(NATIVE_ITEMS["firefox"])),
-        App("thunderbird", "Thunderbird", "native", NATIVE_ITEMS["thunderbird"].installed, install_native(NATIVE_ITEMS["thunderbird"])),
-        App("ghostty", "Ghostty", "native", NATIVE_ITEMS["ghostty"].installed, install_native(NATIVE_ITEMS["ghostty"])),
-        App("alacritty", "Alacritty", "native", NATIVE_ITEMS["alacritty"].installed, install_native(NATIVE_ITEMS["alacritty"])),
-        App("zsh", "ZSH + default shell", "native", zsh_installed, install_zsh_and_default),
-        App("oh-my-zsh", "Oh My Zsh", "native/script", oh_my_zsh_installed, install_oh_my_zsh),
-        App("yubikey", "YubiKey support", "native", NATIVE_ITEMS["yubikey"].installed, install_yubikey_services),
-        App("steam", "Steam", "native", NATIVE_ITEMS["steam"].installed, install_native(NATIVE_ITEMS["steam"])),
-        App("neovim", "Neovim", "native", NATIVE_ITEMS["neovim"].installed, install_native(NATIVE_ITEMS["neovim"])),
-        App("onlyoffice", "ONLYOFFICE Desktop Editors", "flathub", flatpak_installed("org.onlyoffice.DesktopEditors"), install_flatpak("org.onlyoffice.DesktopEditors")),
-        App("github-cli", "GitHub CLI", "native", NATIVE_ITEMS["github-cli"].installed, install_native(NATIVE_ITEMS["github-cli"])),
-        App("edge", "Microsoft Edge", "flathub", flatpak_installed("com.microsoft.Edge"), install_flatpak("com.microsoft.Edge")),
-        App("zed", "Zed Editor", "flathub", flatpak_installed("dev.zed.Zed"), install_flatpak("dev.zed.Zed")),
-        App("spotify", "Spotify", "flathub", flatpak_installed("com.spotify.Client"), install_flatpak("com.spotify.Client")),
-        App("bitwarden", "Bitwarden", "flathub", flatpak_installed("com.bitwarden.desktop"), install_flatpak("com.bitwarden.desktop")),
-        App("mullvad-browser", "Mullvad Browser", "flathub", flatpak_installed("net.mullvad.MullvadBrowser"), install_flatpak("net.mullvad.MullvadBrowser")),
-        App("brave", "Brave Browser", "flathub", flatpak_installed("com.brave.Browser"), install_flatpak("com.brave.Browser")),
-        App("logseq", "Logseq", "flathub", flatpak_installed("com.logseq.Logseq"), install_flatpak("com.logseq.Logseq")),
-        App("keepassxc", "KeePassXC", "flathub", flatpak_installed("org.keepassxc.KeePassXC"), install_flatpak("org.keepassxc.KeePassXC")),
-        App("ausweisapp", "AusweisApp", "flathub", flatpak_installed("de.bund.ausweisapp.ausweisapp2"), install_flatpak("de.bund.ausweisapp.ausweisapp2")),
-        App("nextcloud", "Nextcloud Desktop Client", "flathub", flatpak_installed("com.nextcloud.desktopclient.nextcloud"), install_flatpak("com.nextcloud.desktopclient.nextcloud")),
-        App("vscode", "Visual Studio Code", "native installer", vscode_installed, install_vscode),
-        App("jetbrains-toolbox", "JetBrains Toolbox", "native installer", toolbox_installed, install_jetbrains_toolbox),
-        App("uv", "uv", "native installer", local_bin_command_installed("uv"), install_standalone_script("https://astral.sh/uv/install.sh", "install-uv.sh")),
-        App("ruff", "Ruff", "native installer", local_bin_command_installed("ruff"), install_standalone_script("https://astral.sh/ruff/install.sh", "install-ruff.sh")),
-        App("ty", "ty", "native installer", local_bin_command_installed("ty"), install_standalone_script("https://astral.sh/ty/install.sh", "install-ty.sh")),
-        App("ollama", "Ollama", "native installer", command_installed("ollama"), install_ollama, default_selected=False),
-        App("pi-agent", "Pi Agent", "native installer", command_installed("pi"), install_npm_global("@earendil-works/pi-coding-agent"), default_selected=False),
-        App("opencode", "opencode", "native installer", command_installed("opencode"), install_npm_global("opencode-ai"), default_selected=False),
-        App("hermes-agent", "Hermes Agent", "native installer", command_installed("hermes"), install_hermes_agent, default_selected=False),
-        App("claude-code", "Claude Code", "native installer", command_installed("claude"), install_npm_global("@anthropic-ai/claude-code"), default_selected=False),
-        App("codex-cli", "Codex CLI", "native installer", command_installed("codex"), install_npm_global("@openai/codex"), default_selected=False),
+        App(
+            "flatpak",
+            "Flatpak + Flathub",
+            "native",
+            flathub_configured,
+            install_flatpak_and_flathub,
+        ),
+        App(
+            "firefox",
+            "Firefox",
+            "native",
+            NATIVE_ITEMS["firefox"].installed,
+            install_native(NATIVE_ITEMS["firefox"]),
+        ),
+        App(
+            "thunderbird",
+            "Thunderbird",
+            "native",
+            NATIVE_ITEMS["thunderbird"].installed,
+            install_native(NATIVE_ITEMS["thunderbird"]),
+        ),
+        App(
+            "ghostty",
+            "Ghostty",
+            "native",
+            NATIVE_ITEMS["ghostty"].installed,
+            install_native(NATIVE_ITEMS["ghostty"]),
+        ),
+        App(
+            "alacritty",
+            "Alacritty",
+            "native",
+            NATIVE_ITEMS["alacritty"].installed,
+            install_native(NATIVE_ITEMS["alacritty"]),
+        ),
+        App(
+            "zsh",
+            "ZSH + default shell",
+            "native",
+            zsh_installed,
+            install_zsh_and_default,
+        ),
+        App(
+            "oh-my-zsh",
+            "Oh My Zsh",
+            "native/script",
+            oh_my_zsh_installed,
+            install_oh_my_zsh,
+        ),
+        App(
+            "yubikey",
+            "YubiKey support",
+            "native",
+            NATIVE_ITEMS["yubikey"].installed,
+            install_yubikey_services,
+        ),
+        App(
+            "steam",
+            "Steam",
+            "native",
+            NATIVE_ITEMS["steam"].installed,
+            install_native(NATIVE_ITEMS["steam"]),
+        ),
+        App(
+            "neovim",
+            "Neovim",
+            "native",
+            NATIVE_ITEMS["neovim"].installed,
+            install_native(NATIVE_ITEMS["neovim"]),
+        ),
+        App(
+            "onlyoffice",
+            "ONLYOFFICE Desktop Editors",
+            "flathub",
+            flatpak_installed("org.onlyoffice.desktopeditors"),
+            install_flatpak("org.onlyoffice.desktopeditors"),
+        ),
+        App(
+            "github-cli",
+            "GitHub CLI",
+            "native",
+            NATIVE_ITEMS["github-cli"].installed,
+            install_native(NATIVE_ITEMS["github-cli"]),
+        ),
+        App(
+            "edge",
+            "Microsoft Edge",
+            "flathub",
+            flatpak_installed("com.microsoft.Edge"),
+            install_flatpak("com.microsoft.Edge"),
+        ),
+        App(
+            "zed",
+            "Zed Editor",
+            "flathub",
+            flatpak_installed("dev.zed.Zed"),
+            install_flatpak("dev.zed.Zed"),
+        ),
+        App(
+            "spotify",
+            "Spotify",
+            "flathub",
+            flatpak_installed("com.spotify.Client"),
+            install_flatpak("com.spotify.Client"),
+        ),
+        App(
+            "bitwarden",
+            "Bitwarden",
+            "flathub",
+            flatpak_installed("com.bitwarden.desktop"),
+            install_flatpak("com.bitwarden.desktop"),
+        ),
+        App(
+            "mullvad-browser",
+            "Mullvad Browser",
+            "flathub",
+            flatpak_installed("net.mullvad.MullvadBrowser"),
+            install_flatpak("net.mullvad.MullvadBrowser"),
+        ),
+        App(
+            "brave",
+            "Brave Browser",
+            "flathub",
+            flatpak_installed("com.brave.Browser"),
+            install_flatpak("com.brave.Browser"),
+        ),
+        App(
+            "logseq",
+            "Logseq",
+            "flathub",
+            flatpak_installed("com.logseq.Logseq"),
+            install_flatpak("com.logseq.Logseq"),
+        ),
+        App(
+            "keepassxc",
+            "KeePassXC",
+            "flathub",
+            flatpak_installed("org.keepassxc.KeePassXC"),
+            install_flatpak("org.keepassxc.KeePassXC"),
+        ),
+        App(
+            "ausweisapp",
+            "AusweisApp",
+            "flathub",
+            flatpak_installed("de.bund.ausweisapp.ausweisapp2"),
+            install_flatpak("de.bund.ausweisapp.ausweisapp2"),
+        ),
+        App(
+            "nextcloud",
+            "Nextcloud Desktop Client",
+            "flathub",
+            flatpak_installed("com.nextcloud.desktopclient.nextcloud"),
+            install_flatpak("com.nextcloud.desktopclient.nextcloud"),
+        ),
+        App(
+            "vscode",
+            "Visual Studio Code",
+            "native installer",
+            vscode_installed,
+            install_vscode,
+        ),
+        App(
+            "jetbrains-toolbox",
+            "JetBrains Toolbox",
+            "native installer",
+            toolbox_installed,
+            install_jetbrains_toolbox,
+        ),
+        App(
+            "uv",
+            "uv",
+            "native installer",
+            local_bin_command_installed("uv"),
+            install_standalone_script(
+                "https://astral.sh/uv/install.sh", "install-uv.sh"
+            ),
+        ),
+        App(
+            "ruff",
+            "Ruff",
+            "native installer",
+            local_bin_command_installed("ruff"),
+            install_standalone_script(
+                "https://astral.sh/ruff/install.sh", "install-ruff.sh"
+            ),
+        ),
+        App(
+            "ty",
+            "ty",
+            "native installer",
+            local_bin_command_installed("ty"),
+            install_standalone_script(
+                "https://astral.sh/ty/install.sh", "install-ty.sh"
+            ),
+        ),
+        App(
+            "ollama",
+            "Ollama",
+            "native installer",
+            command_installed("ollama"),
+            install_ollama,
+            default_selected=False,
+        ),
+        App(
+            "pi-agent",
+            "Pi Agent",
+            "native installer",
+            command_installed("pi"),
+            install_npm_global("@earendil-works/pi-coding-agent"),
+            default_selected=False,
+        ),
+        App(
+            "opencode",
+            "opencode",
+            "native installer",
+            command_installed("opencode"),
+            install_npm_global("opencode-ai"),
+            default_selected=False,
+        ),
+        App(
+            "hermes-agent",
+            "Hermes Agent",
+            "native installer",
+            command_installed("hermes"),
+            install_hermes_agent,
+            default_selected=False,
+        ),
+        App(
+            "claude-code",
+            "Claude Code",
+            "native installer",
+            command_installed("claude"),
+            install_npm_global("@anthropic-ai/claude-code"),
+            default_selected=False,
+        ),
+        App(
+            "codex-cli",
+            "Codex CLI",
+            "native installer",
+            command_installed("codex"),
+            install_npm_global("@openai/codex"),
+            default_selected=False,
+        ),
     ]
 
 
@@ -673,7 +978,9 @@ def print_status(installed: list[App], pending: list[App]) -> None:
         print(c("\nAlready installed", Color.GREEN))
         for app in installed:
             status = app.category + (", opt-in" if not app.default_selected else "")
-            print(f"  {c('[ok]', Color.GREEN)} {app.label} {c('[' + status + ']', Color.DIM)}")
+            print(
+                f"  {c('[ok]', Color.GREEN)} {app.label} {c('[' + status + ']', Color.DIM)}"
+            )
     else:
         print(c("\nAlready installed: none from this list", Color.YELLOW))
     if pending:
@@ -720,7 +1027,12 @@ def choose_apps(pending: list[App], assume_yes: bool = False) -> list[App]:
         return default_apps
     print()
     print("Select packages to install.")
-    print(c("Enter = default selection, 'all' = all including opt-in, 'none' = none, examples: 1,3,5-8", Color.DIM))
+    print(
+        c(
+            "Enter = default selection, 'all' = all including opt-in, 'none' = none, examples: 1,3,5-8",
+            Color.DIM,
+        )
+    )
     while True:
         try:
             selection = input(c("Install selection [default]: ", Color.BOLD))
@@ -739,7 +1051,12 @@ def install_selected(system: SystemInfo, selected: list[App]) -> int:
     failures: list[tuple[str, str]] = []
     print()
     for index, app in enumerate(selected, 1):
-        print(c(f"[{index}/{len(selected)}] Installing {app.label}", Color.BOLD + Color.BLUE))
+        print(
+            c(
+                f"[{index}/{len(selected)}] Installing {app.label}",
+                Color.BOLD + Color.BLUE,
+            )
+        )
         try:
             app.install(system)
         except Exception as exc:  # noqa: BLE001 - report and continue with the rest.
@@ -756,15 +1073,37 @@ def install_selected(system: SystemInfo, selected: list[App]) -> int:
 
 def supported_warning(system: SystemInfo) -> None:
     if system.family == "unknown":
-        print(c("Warning: this distribution is not mapped to a supported package manager.", Color.YELLOW))
-    elif system.distro_id not in SUPPORTED_DISTROS and not set(system.id_like).intersection(SUPPORTED_DISTROS):
-        print(c(f"Warning: {system.distro_name} is not one of the explicitly targeted distributions.", Color.YELLOW))
+        print(
+            c(
+                "Warning: this distribution is not mapped to a supported package manager.",
+                Color.YELLOW,
+            )
+        )
+    elif system.distro_id not in SUPPORTED_DISTROS and not set(
+        system.id_like
+    ).intersection(SUPPORTED_DISTROS):
+        print(
+            c(
+                f"Warning: {system.distro_name} is not one of the explicitly targeted distributions.",
+                Color.YELLOW,
+            )
+        )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Install a personal desktop software set on Linux.")
-    parser.add_argument("--yes", action="store_true", help="install default-selected remaining packages without prompting")
-    parser.add_argument("--dry-run", action="store_true", help="detect and print status without installing")
+    parser = argparse.ArgumentParser(
+        description="Install a personal desktop software set on Linux."
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="install default-selected remaining packages without prompting",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="detect and print status without installing",
+    )
     args = parser.parse_args()
 
     if not sys.platform.startswith("linux"):
