@@ -367,11 +367,8 @@ def install_vscode(system: SystemInfo) -> None:
             sudo=True,
         )
         manager_install(system, ["code"])
-    elif system.family == "arch":
-        install_arch_aur_helper()
-        run(["yay", "-S", "--needed", "--noconfirm", "visual-studio-code-bin"])
     else:
-        raise RuntimeError("VSCode installer is not mapped for this distribution.")
+        install_flatpak("com.vscodium.codium")(system)
 
 
 def toolbox_installed(_system: SystemInfo) -> bool:
@@ -404,7 +401,7 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
         print(f"Downloading {url}")
         urllib.request.urlretrieve(url, archive)
         run(["tar", "-xzf", str(archive), "-C", tmp])
-        candidates = sorted(Path(tmp).glob("jetbrains-toolbox-*/jetbrains-toolbox"))
+        candidates = sorted(Path(tmp).glob("jetbrains-toolbox-*/bin/jetbrains-toolbox"))
         if not candidates:
             raise RuntimeError("Could not find jetbrains-toolbox in downloaded archive.")
         target = bin_dir / "jetbrains-toolbox"
@@ -422,13 +419,6 @@ def install_hermes_agent(_system: SystemInfo) -> None:
     install_shell_script("https://hermes-agent.nousresearch.com/install.sh", "install-hermes.sh", shell="bash")
 
 
-def install_arch_aur_helper() -> None:
-    if command_exists("yay"):
-        return
-    manager_install(detect_system(), ["base-devel", "git"])
-    with tempfile.TemporaryDirectory() as tmp:
-        run(["git", "clone", "https://aur.archlinux.org/yay-bin.git", tmp])
-        run(["makepkg", "-si", "--noconfirm"], sudo=False, check=True, capture=False, cwd=tmp)
 
 
 def zsh_installed(_system: SystemInfo) -> bool:
@@ -609,16 +599,6 @@ NATIVE_ITEMS: dict[str, NativePackage] = {
             "opensuse": ("neovim",),
         },
     ),
-    "onlyoffice": NativePackage(
-        "ONLYOFFICE Desktop Editors",
-        ("onlyoffice-desktopeditors",),
-        {
-            "debian": ("onlyoffice-desktopeditors",),
-            "fedora": ("onlyoffice-desktopeditors",),
-            "arch": ("onlyoffice-bin",),
-            "opensuse": ("onlyoffice-desktopeditors",),
-        },
-    ),
     "github-cli": NativePackage(
         "GitHub CLI",
         ("gh",),
@@ -644,7 +624,7 @@ def apps() -> list[App]:
         App("yubikey", "YubiKey support", "native", NATIVE_ITEMS["yubikey"].installed, install_yubikey_services),
         App("steam", "Steam", "native", NATIVE_ITEMS["steam"].installed, install_native(NATIVE_ITEMS["steam"])),
         App("neovim", "Neovim", "native", NATIVE_ITEMS["neovim"].installed, install_native(NATIVE_ITEMS["neovim"])),
-        App("onlyoffice", "ONLYOFFICE Desktop Editors", "native", NATIVE_ITEMS["onlyoffice"].installed, install_native(NATIVE_ITEMS["onlyoffice"])),
+        App("onlyoffice", "ONLYOFFICE Desktop Editors", "flathub", flatpak_installed("org.onlyoffice.DesktopEditors"), install_flatpak("org.onlyoffice.DesktopEditors")),
         App("github-cli", "GitHub CLI", "native", NATIVE_ITEMS["github-cli"].installed, install_native(NATIVE_ITEMS["github-cli"])),
         App("edge", "Microsoft Edge", "flathub", flatpak_installed("com.microsoft.Edge"), install_flatpak("com.microsoft.Edge")),
         App("zed", "Zed Editor", "flathub", flatpak_installed("dev.zed.Zed"), install_flatpak("dev.zed.Zed")),
