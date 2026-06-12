@@ -290,11 +290,18 @@ def local_bin_command_installed(command: str) -> Callable[[SystemInfo], bool]:
     return lambda _system: command_exists(command) or Path.home().joinpath(".local", "bin", command).exists()
 
 
+def download_file(url: str, dest: Path) -> None:
+    headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as response:
+        dest.write_bytes(response.read())
+
+
 def install_shell_script(url: str, filename: str, shell: str = "sh") -> None:
     with tempfile.TemporaryDirectory() as tmp:
         installer = Path(tmp) / filename
         print(f"Downloading {url}")
-        urllib.request.urlretrieve(url, installer)
+        download_file(url, installer)
         run([shell, str(installer)])
 
 
@@ -399,7 +406,7 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         archive = Path(tmp) / "jetbrains-toolbox.tar.gz"
         print(f"Downloading {url}")
-        urllib.request.urlretrieve(url, archive)
+        download_file(url, archive)
         run(["tar", "-xzf", str(archive), "-C", tmp])
         candidates = sorted(Path(tmp).glob("jetbrains-toolbox-*/bin/jetbrains-toolbox"))
         if not candidates:
@@ -462,7 +469,7 @@ def install_oh_my_zsh(system: SystemInfo) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             installer = Path(tmp) / "install-oh-my-zsh.sh"
             print(f"Downloading {url}")
-            urllib.request.urlretrieve(url, installer)
+            download_file(url, installer)
             run(["sh", str(installer)], check=True, capture=False, input_text=None, env=env)
 
 
