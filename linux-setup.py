@@ -9,9 +9,11 @@ run on a freshly installed desktop system.
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import platform
+import pwd
 import shutil
 import subprocess
 import sys
@@ -519,12 +521,35 @@ def install_hermes_agent(_system: SystemInfo) -> None:
     )
 
 
+def target_login_user() -> str:
+    user = os.environ.get("SUDO_USER") if os.geteuid() == 0 else None
+    if not user or user == "root":
+        user = os.environ.get("USER") or getpass.getuser()
+    if not user:
+        raise RuntimeError("Could not determine which user's shell to change.")
+    return user
+
+
+def login_shell(user: str) -> str:
+    try:
+        return pwd.getpwnam(user).pw_shell
+    except KeyError as exc:
+        raise RuntimeError(f"User does not exist: {user}") from exc
+
+
+def zsh_is_default_for_target_user() -> bool:
+    if not command_exists("zsh"):
+        return False
+    return Path(login_shell(target_login_user())).name == "zsh"
+
+
 def zsh_installed(_system: SystemInfo) -> bool:
-    return command_exists("zsh")
+    return zsh_is_default_for_target_user()
 
 
 def install_zsh_and_default(system: SystemInfo) -> None:
-    install_native(NATIVE_ITEMS["zsh"])(system)
+    if not command_exists("zsh"):
+        install_native(NATIVE_ITEMS["zsh"])(system)
     make_zsh_default()
 
 
@@ -532,17 +557,33 @@ def make_zsh_default() -> None:
     zsh = shutil.which("zsh")
     if not zsh:
         raise RuntimeError("zsh was not found after installation.")
-    current_shell = os.environ.get("SHELL", "")
-    if Path(current_shell).name == "zsh":
+    user = target_login_user()
+    if Path(login_shell(user)).name == "zsh":
         return
     shells = (
         Path("/etc/shells").read_text(encoding="utf-8")
         if Path("/etc/shells").exists()
         else ""
     )
-    if zsh not in shells:
-        run(["sh", "-c", f"printf '%s\\n' '{zsh}' >> /etc/shells"], sudo=True)
-    run(["chsh", "-s", zsh, os.environ.get("USER", "")], sudo=True)
+    if zsh not in shells.splitlines():
+        run(["tee", "-a", "/etc/shells"], sudo=True, input_text=f"{zsh}\n")
+
+    chsh_result = run(["chsh", "-s", zsh, user], sudo=True, check=False)
+    if Path(login_shell(user)).name != "zsh" and command_exists("usermod"):
+        run(["usermod", "--shell", zsh, user], sudo=True)
+
+    new_shell = login_shell(user)
+    if Path(new_shell).name != "zsh":
+        raise RuntimeError(
+            f"Could not change {user}'s login shell to {zsh}. "
+            f"chsh exited with {chsh_result.returncode}; current login shell is {new_shell}."
+        )
+    print(
+        c(
+            f"Changed {user}'s login shell to {zsh}. Log out and back in for it to take effect.",
+            Color.GREEN,
+        )
+    )
 
 
 def oh_my_zsh_installed(_system: SystemInfo) -> bool:
