@@ -505,6 +505,11 @@ def install_jetbrains_toolbox(_system: SystemInfo) -> None:
     link.symlink_to(bin_dir / "jetbrains-toolbox")
     print(f"Installed JetBrains Toolbox to {link}")
 
+    print(
+        "Initializing JetBrains Toolbox to create necessary links (start menu, autostart, etc.)..."
+    )
+    subprocess.Popen(["./bin/jetbrains-toolbox"], cwd=install_dir)
+
 
 def install_hermes_agent(_system: SystemInfo) -> None:
     install_shell_script(
@@ -551,24 +556,20 @@ def install_oh_my_zsh(system: SystemInfo) -> None:
     if packages:
         manager_install(system, packages)
     if not oh_my_zsh_installed(system):
-        manager_install(system, ["git"])
+        manager_install(system, ["git", "curl"])
         env = os.environ.copy()
         env["RUNZSH"] = "no"
         env["CHSH"] = "no"
         url = (
             "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
         )
-        with tempfile.TemporaryDirectory() as tmp:
-            installer = Path(tmp) / "install-oh-my-zsh.sh"
-            print(f"Downloading {url}")
-            download_file(url, installer)
-            run(
-                ["sh", str(installer)],
-                check=True,
-                capture=False,
-                input_text=None,
-                env=env,
-            )
+        print(f"Installing Oh My Zsh from {url}")
+        run(
+            ["sh", "-c", f"curl -fsSL {url} | sh"],
+            check=True,
+            capture=False,
+            env=env,
+        )
 
 
 def install_yubikey_services(system: SystemInfo) -> None:
