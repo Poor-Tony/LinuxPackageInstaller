@@ -29,6 +29,23 @@ def c(text: str, color: str) -> str:
     return f"{color}{text}{Color.RESET}"
 
 
+HOST_COMMAND_ENV_REMOVE = {
+    "LD_LIBRARY_PATH",
+    "LD_PRELOAD",
+    "GI_TYPELIB_PATH",
+    "GIO_EXTRA_MODULES",
+    "GTK_PATH",
+    "QT_PLUGIN_PATH",
+}
+
+
+def host_command_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    cleaned = (env or os.environ).copy()
+    for name in HOST_COMMAND_ENV_REMOVE:
+        cleaned.pop(name, None)
+    return cleaned
+
+
 def run(
     args: list[str],
     *,
@@ -52,7 +69,7 @@ def run(
         stdout=subprocess.PIPE if capture else None,
         stderr=subprocess.PIPE if capture else None,
         cwd=cwd,
-        env=env,
+        env=host_command_env(env),
     )
 
 
