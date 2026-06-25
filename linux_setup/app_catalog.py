@@ -271,4 +271,12 @@ def apps() -> list[App]:
             install_npm_global("@openai/codex"),
             default_selected=False,
         ),
+        App(
+            "gemini-cli",
+            "Gemini CLI",
+            "native installer",
+            command_installed("gemini"),
+            install_npm_global("@google/gemini-cli"),
+            default_selected=False,
+        ),
     ]
