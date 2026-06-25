@@ -271,4 +271,16 @@ def apps() -> list[App]:
             install_npm_global("@openai/codex"),
             default_selected=False,
         ),
+        App(
+            "antigravity-cli",
+            "Antigravity CLI",
+            "native installer",
+            local_bin_command_installed("agy"),
+            install_standalone_script(
+                "https://antigravity.google/cli/install.sh",
+                "install-antigravity-cli.sh",
+                shell="bash",
+            ),
+            default_selected=False,
+        ),
     ]
