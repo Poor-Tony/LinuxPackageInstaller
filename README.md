@@ -58,14 +58,13 @@ Native installers:
 - Hermes Agent
 - Claude Code
 - Codex CLI
-- Gemini CLI
 
 uv, Ruff, ty and Hermes Agent use the official upstream installers. Pi Agent,
-opencode, Claude Code, Codex CLI and Gemini CLI use global npm packages.
+opencode, Claude Code and Codex CLI use global npm packages.
 
-Ollama, Pi Agent, opencode, Hermes Agent, Claude Code, Codex CLI and Gemini CLI
-are opt-in entries. They are shown in the selection list but are not selected
-when pressing Enter or when using `--yes`.
+Ollama, Pi Agent, opencode, Hermes Agent, Claude Code and Codex CLI are opt-in
+entries. They are shown in the selection list but are not selected when pressing
+Enter or when using `--yes`.
 
 ## Usage
 
